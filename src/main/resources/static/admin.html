@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard — Real-Time Notification System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0f172a;
+            --bg-surface: #1e293b;
+            --bg-card: #1e293b;
+            --border-color: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --info: #38bdf8;
+            --warning: #f59e0b;
+            --critical: #ef4444;
+            --success: #10b981;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --shadow-card: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1100px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
+            backdrop-filter: blur(12px);
+            padding: 20px 28px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-card);
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-title h1 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .badge-admin {
+            background-color: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+        }
+
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            border: 1px solid var(--border-color);
+            background: rgba(15, 23, 42, 0.6);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #94a3b8;
+            transition: background-color 0.3s ease;
+        }
+
+        .status-dot.connected {
+            background-color: var(--success);
+            box-shadow: 0 0 10px var(--success);
+        }
+
+        .status-dot.reconnecting {
+            background-color: var(--warning);
+            box-shadow: 0 0 10px var(--warning);
+        }
+
+        .status-dot.disconnected {
+            background-color: var(--critical);
+        }
+
+        .connection-counter {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(59, 130, 246, 0.12);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #93c5fd;
+        }
+
+        .counter-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            color: #ffffff;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.25fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 860px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow-card);
+        }
+
+        .card h2 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+
+        label {
+            font-size: 0.825rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        input[type="text"],
+        select,
+        textarea {
+            width: 100%;
+            background-color: #0f172a;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.95rem;
+            padding: 10px 14px;
+            transition: all 0.2s ease;
+        }
+
+        input[type="text"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 95px;
+        }
+
+        .severity-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+        }
+
+        .severity-option {
+            position: relative;
+        }
+
+        .severity-option input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .severity-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 12px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            background: #0f172a;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            text-transform: capitalize;
+        }
+
+        .severity-option input[type="radio"]:checked + .severity-label.info {
+            background: rgba(56, 189, 248, 0.15);
+            border-color: var(--info);
+            color: var(--info);
+        }
+
+        .severity-option input[type="radio"]:checked + .severity-label.warning {
+            background: rgba(245, 158, 11, 0.15);
+            border-color: var(--warning);
+            color: var(--warning);
+        }
+
+        .severity-option input[type="radio"]:checked + .severity-label.critical {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: var(--critical);
+            color: var(--critical);
+        }
+
+        .btn-submit {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            background-color: var(--primary);
+            color: #ffffff;
+            border: none;
+            border-radius: var(--radius-md);
+            padding: 12px 18px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Banner alerts for form feedback */
+        .feedback-banner {
+            display: none;
+            padding: 12px 16px;
+            border-radius: var(--radius-md);
+            margin-bottom: 16px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .feedback-banner.success {
+            display: block;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid var(--success);
+            color: #6ee7b7;
+        }
+
+        .feedback-banner.error {
+            display: block;
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid var(--critical);
+            color: #fca5a5;
+        }
+
+        /* History list */
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .refresh-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 0.775rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .refresh-btn:hover {
+            color: var(--text-main);
+            border-color: var(--text-muted);
+        }
+
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 520px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .history-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .history-list::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+
+        .history-item {
+            background: #0f172a;
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--info);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            transition: transform 0.15s ease;
+        }
+
+        .history-item:hover {
+            transform: translateX(2px);
+        }
+
+        .history-item.info { border-left-color: var(--info); }
+        .history-item.warning { border-left-color: var(--warning); }
+        .history-item.critical { border-left-color: var(--critical); }
+
+        .item-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .item-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-main);
+        }
+
+        .item-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 4px;
+            letter-spacing: 0.03em;
+        }
+
+        .item-badge.info { background: rgba(56, 189, 248, 0.2); color: var(--info); }
+        .item-badge.warning { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+        .item-badge.critical { background: rgba(239, 68, 68, 0.2); color: var(--critical); }
+
+        .item-message {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .item-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #64748b;
+            font-family: 'JetBrains Mono', monospace;
+            margin-top: 2px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 16px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .quick-nav {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            padding: 8px 4px;
+        }
+
+        .quick-nav a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .quick-nav a:hover {
+            text-decoration: underline;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="header-title">
+                <h1>Real-Time Notification System</h1>
+                <span class="badge-admin">Admin Dashboard</span>
+            </div>
+            <div class="header-meta">
+                <div class="connection-counter" title="Active WebSocket client connections">
+                    <span>Connected Clients:</span>
+                    <span id="clientCount" class="counter-num">0</span>
+                </div>
+                <div class="status-pill">
+                    <span id="statusDot" class="status-dot disconnected"></span>
+                    <span id="statusText">Connecting...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Grid -->
+        <div class="dashboard-grid">
+            <!-- Left: Broadcast Composer -->
+            <div class="card">
+                <h2>📢 Broadcast Notification</h2>
+
+                <div id="feedbackBanner" class="feedback-banner"></div>
+
+                <form id="broadcastForm">
+                    <div class="form-group">
+                        <label for="title">Notification Title</label>
+                        <input type="text" id="title" placeholder="e.g. System Maintenance Scheduled" maxlength="100" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Severity Level</label>
+                        <div class="severity-selector">
+                            <div class="severity-option">
+                                <input type="radio" id="sev-info" name="severity" value="info" checked>
+                                <label for="sev-info" class="severity-label info">Info</label>
+                            </div>
+                            <div class="severity-option">
+                                <input type="radio" id="sev-warning" name="severity" value="warning">
+                                <label for="sev-warning" class="severity-label warning">Warning</label>
+                            </div>
+                            <div class="severity-option">
+                                <input type="radio" id="sev-critical" name="severity" value="critical">
+                                <label for="sev-critical" class="severity-label critical">Critical</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="message">Message Body</label>
+                        <textarea id="message" placeholder="Provide details for the broadcast notification..." maxlength="500" required></textarea>
+                    </div>
+
+                    <button type="submit" id="btnBroadcast" class="btn-submit">
+                        <span>Send Broadcast Notification</span>
+                    </button>
+                </form>
+
+                <div class="quick-nav" style="margin-top: 18px;">
+                    <span>Open client view in new tab:</span>
+                    <a href="/client.html" target="_blank" rel="noopener">Open Client Page ↗</a>
+                </div>
+            </div>
+
+            <!-- Right: Recent Notifications Store (Last 10) -->
+            <div class="card">
+                <div class="history-header">
+                    <h2>🕒 Recent Notifications (Max 10)</h2>
+                    <button id="btnRefreshHistory" class="refresh-btn">Refresh</button>
+                </div>
+                <div id="historyList" class="history-list">
+                    <div class="empty-state">No notifications broadcasted yet.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const clientCountEl = document.getElementById('clientCount');
+        const broadcastForm = document.getElementById('broadcastForm');
+        const titleInput = document.getElementById('title');
+        const messageInput = document.getElementById('message');
+        const btnBroadcast = document.getElementById('btnBroadcast');
+        const feedbackBanner = document.getElementById('feedbackBanner');
+        const historyList = document.getElementById('historyList');
+        const btnRefreshHistory = document.getElementById('btnRefreshHistory');
+
+        // WebSocket & Reconnect State
+        let socket = null;
+        let reconnectDelay = 1000;
+        const maxReconnectDelay = 30000;
+        let reconnectTimeout = null;
+
+        function getWebSocketUrl() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            return `${protocol}//${window.location.host}/ws`;
+        }
+
+        function setStatus(state, message) {
+            statusDot.className = 'status-dot ' + state;
+            statusText.textContent = message;
+        }
+
+        function connectWebSocket() {
+            if (socket && (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN)) {
+                return;
+            }
+
+            setStatus('reconnecting', 'Connecting...');
+            const wsUrl = getWebSocketUrl();
+            socket = new WebSocket(wsUrl);
+
+            socket.onopen = () => {
+                setStatus('connected', 'Connected');
+                reconnectDelay = 1000; // Reset exponential backoff
+                if (reconnectTimeout) clearTimeout(reconnectTimeout);
+            };
+
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleIncomingWsMessage(data);
+                } catch (e) {
+                    console.error('Failed to parse incoming WS message:', e);
+                }
+            };
+
+            socket.onclose = (event) => {
+                setStatus('disconnected', 'Disconnected');
+                scheduleReconnect();
+            };
+
+            socket.onerror = (err) => {
+                console.warn('WebSocket encountered error:', err);
+                socket.close();
+            };
+        }
+
+        function scheduleReconnect() {
+            if (reconnectTimeout) clearTimeout(reconnectTimeout);
+            setStatus('reconnecting', `Reconnecting in ${reconnectDelay / 1000}s...`);
+            reconnectTimeout = setTimeout(() => {
+                connectWebSocket();
+                reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay);
+            }, reconnectDelay);
+        }
+
+        function handleIncomingWsMessage(msg) {
+            if (!msg || !msg.type) return;
+
+            switch (msg.type) {
+                case 'connectionCount':
+                    if (typeof msg.count === 'number') {
+                        clientCountEl.textContent = msg.count;
+                    }
+                    break;
+                case 'notification':
+                    if (msg.notification) {
+                        prependNotification(msg.notification);
+                    }
+                    break;
+                case 'history':
+                    if (Array.isArray(msg.notifications)) {
+                        renderHistory(msg.notifications);
+                    }
+                    break;
+            }
+        }
+
+        // Safe DOM rendering to prevent XSS
+        function createNotificationItem(notif) {
+            const item = document.createElement('div');
+            const severity = (notif.severity || 'info').toLowerCase();
+            item.className = `history-item ${severity}`;
+
+            const top = document.createElement('div');
+            top.className = 'item-top';
+
+            const title = document.createElement('span');
+            title.className = 'item-title';
+            title.textContent = notif.title;
+
+            const badge = document.createElement('span');
+            badge.className = `item-badge ${severity}`;
+            badge.textContent = severity;
+
+            top.appendChild(title);
+            top.appendChild(badge);
+
+            const msg = document.createElement('div');
+            msg.className = 'item-message';
+            msg.textContent = notif.message;
+
+            const meta = document.createElement('div');
+            meta.className = 'item-meta';
+
+            const timeStr = notif.timestamp ? new Date(notif.timestamp).toLocaleTimeString() : '';
+            const idShort = notif.id ? notif.id.substring(0, 8) : '';
+            
+            const timeSpan = document.createElement('span');
+            timeSpan.textContent = timeStr;
+            const idSpan = document.createElement('span');
+            idSpan.textContent = '#' + idShort;
+
+            meta.appendChild(timeSpan);
+            meta.appendChild(idSpan);
+
+            item.appendChild(top);
+            item.appendChild(msg);
+            item.appendChild(meta);
+
+            return item;
+        }
+
+        function renderHistory(notifications) {
+            historyList.innerHTML = '';
+            if (!notifications || notifications.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'empty-state';
+                empty.textContent = 'No notifications stored yet.';
+                historyList.appendChild(empty);
+                return;
+            }
+
+            notifications.forEach(notif => {
+                historyList.appendChild(createNotificationItem(notif));
+            });
+        }
+
+        function prependNotification(notif) {
+            const emptyState = historyList.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+
+            const item = createNotificationItem(notif);
+            historyList.insertBefore(item, historyList.firstChild);
+
+            // Cap UI list to 10 items
+            while (historyList.children.length > 10) {
+                historyList.removeChild(historyList.lastChild);
+            }
+        }
+
+        async function fetchHistory() {
+            try {
+                const res = await fetch('/notifications');
+                if (res.ok) {
+                    const data = await res.json();
+                    renderHistory(data);
+                }
+            } catch (err) {
+                console.error('Failed to load history:', err);
+            }
+        }
+
+        function showFeedback(type, message) {
+            feedbackBanner.className = `feedback-banner ${type}`;
+            feedbackBanner.textContent = message;
+            setTimeout(() => {
+                feedbackBanner.className = 'feedback-banner';
+            }, 6000);
+        }
+
+        // Form submission via POST /notify
+        broadcastForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const title = titleInput.value.trim();
+            const message = messageInput.value.trim();
+            const severityRadio = document.querySelector('input[name="severity"]:checked');
+            const severity = severityRadio ? severityRadio.value : 'info';
+
+            if (!title || !message) {
+                showFeedback('error', 'Please fill in all required fields.');
+                return;
+            }
+
+            btnBroadcast.disabled = true;
+            btnBroadcast.textContent = 'Broadcasting...';
+
+            try {
+                const response = await fetch('/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, message, severity })
+                });
+
+                if (response.ok) {
+                    showFeedback('success', 'Notification broadcasted successfully!');
+                    broadcastForm.reset();
+                    document.getElementById('sev-info').checked = true;
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    const errMsg = errorData.message || (errorData.fieldErrors ? JSON.stringify(errorData.fieldErrors) : 'Failed to broadcast notification.');
+                    showFeedback('error', `Error (${response.status}): ${errMsg}`);
+                }
+            } catch (err) {
+                showFeedback('error', 'Network error broadcasting notification.');
+            } finally {
+                btnBroadcast.disabled = false;
+                btnBroadcast.textContent = 'Send Broadcast Notification';
+            }
+        });
+
+        btnRefreshHistory.addEventListener('click', fetchHistory);
+
+        // Initialize WebSocket and load initial history
+        connectWebSocket();
+        fetchHistory();
+    </script>
+</body>
+</html>
