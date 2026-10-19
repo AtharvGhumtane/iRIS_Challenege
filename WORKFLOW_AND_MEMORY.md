@@ -11,26 +11,26 @@ The system connects web browser clients and external services to a single Spring
 ```mermaid
 graph TD
     subgraph Clients["Client Layer"]
-        A[Admin Dashboard]
-        C1[Client 1 - Receiver]
-        C2[Client 2 - Receiver]
-        EXT[External Integration / cURL]
+        A["Admin Dashboard"]
+        C1["Client 1 - Receiver"]
+        C2["Client 2 - Receiver"]
+        EXT["External Integration / cURL"]
     end
 
-    subgraph SpringBoot["Spring Boot Backend (Port 8080)"]
-        WS_CFG["WebSocketConfig (/ws)"]
-        CTRL["NotificationController<br/>POST /notify & GET /notifications"]
+    subgraph SpringBoot["Spring Boot Backend - Port 8080"]
+        WS_CFG["WebSocketConfig at /ws"]
+        CTRL["NotificationController - REST Endpoints"]
         
-        SVC["NotificationService.broadcast()<br/>(Single Entry Point)"]
+        SVC["NotificationService.broadcast - Single Entry Point"]
         
         subgraph Storage["In-Memory Bounded Store"]
-            STORE["NotificationStore<br/>(ArrayDeque, Capacity: 10, Newest-First)"]
+            STORE["NotificationStore - ArrayDeque Capped at 10"]
         end
         
         subgraph WS_Engine["WebSocket Management Engine"]
             HANDLER["NotificationWebSocketHandler"]
-            SESSIONS["ConcurrentHashMap&lt;String, WebSocketSession&gt;"]
-            HEARTBEAT["@Scheduled Heartbeat<br/>(Every 30s: Ping/Pong & Pruning)"]
+            SESSIONS["ConcurrentHashMap - Active Sessions"]
+            HEARTBEAT["Scheduled Heartbeat - 30s Ping Sweep"]
         end
     end
 
@@ -38,19 +38,19 @@ graph TD
     A -->|1. Submit Form via POST /notify| CTRL
     EXT -->|1. HTTP POST /notify| CTRL
     CTRL -->|2. Delegate Request| SVC
-    SVC -->|3. Save Recent (Capped 10)| STORE
+    SVC -->|3. Save Recent - Capped at 10| STORE
     SVC -->|4. Push Broadcast Event| HANDLER
     HANDLER -->|5. Non-blocking Safe Push| SESSIONS
     
-    C1 <-->|WebSocket Handshake /ws| WS_CFG
-    C2 <-->|WebSocket Handshake /ws| WS_CFG
-    A <-->|WebSocket Handshake /ws| WS_CFG
+    C1 <-->|WebSocket Handshake at /ws| WS_CFG
+    C2 <-->|WebSocket Handshake at /ws| WS_CFG
+    A <-->|WebSocket Handshake at /ws| WS_CFG
     WS_CFG --> HANDLER
     
     SESSIONS -.->|Live Notification Toasts| C1
     SESSIONS -.->|Live Notification Toasts| C2
     SESSIONS -.->|Live Connection Counter| A
-    HEARTBEAT -.->|Ping & Ping Evaluation| SESSIONS
+    HEARTBEAT -.->|Ping and Pong Evaluation| SESSIONS
 ```
 
 ---
@@ -63,23 +63,23 @@ When an admin or client loads their page in the browser:
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Browser as Client Browser (Vanilla JS)
+    participant Browser as Client Browser
     participant Config as WebSocketConfig
     participant Handler as NotificationWebSocketHandler
     participant Store as NotificationStore
-    participant Map as Session Map (ConcurrentHashMap)
+    participant Map as Session Map
 
-    Browser->>Config: WS Connect (ws://localhost:8080/ws)
-    Config->>Handler: afterConnectionEstablished(session)
-    Handler->>Handler: Wrap in ConcurrentWebSocketSessionDecorator (10s send limit, 64KB buffer)
-    Handler->>Handler: Record initial lastPongTimestamp
-    Handler->>Map: Put session into sessions map
-    Handler->>Store: getRecent()
+    Browser->>Config: WS Connect to /ws
+    Config->>Handler: afterConnectionEstablished
+    Handler->>Handler: Decorate session with buffer limits
+    Handler->>Handler: Record initial ping timestamp
+    Handler->>Map: Register session in map
+    Handler->>Store: getRecent
     Store-->>Handler: Return snapshot of last 10 notifications
-    Handler-->>Browser: Send Frame 1: { type: "history", notifications: [...] }
+    Handler-->>Browser: Send history frame with recent notifications
     Handler->>Handler: Calculate active session count
-    Handler-->>Browser: Send Frame 2: { type: "connectionCount", count: N } (Broadcast to all)
-    Note over Browser: Reset exponential backoff to 1s<br/>Render initial history stream
+    Handler-->>Browser: Broadcast connectionCount frame to all clients
+    Note over Browser: Reset backoff to 1s and render initial stream
 ```
 
 ---
@@ -90,34 +90,34 @@ Both the Admin Web Form and `POST /notify` follow the identical code path:
 ```mermaid
 sequenceDiagram
     autonumber
-    participant AdminUI as Admin Form / cURL
+    participant AdminUI as Admin Form or cURL
     participant Controller as NotificationController
     participant Service as NotificationService
     participant Store as NotificationStore
     participant Handler as NotificationWebSocketHandler
     participant ClientUI as Connected Clients
 
-    AdminUI->>Controller: POST /notify (JSON Payload)
-    Note over Controller: Bean Validation (@Valid):<br/>@NotBlank title, @NotBlank message, @NotNull severity
+    AdminUI->>Controller: POST /notify with JSON payload
+    Note over Controller: Execute Bean Validation checks
     alt Invalid Input
         Controller-->>AdminUI: 400 Bad Request with fieldErrors JSON
     else Valid Input
-        Controller->>Service: broadcast(NotifyRequest)
-        Service->>Service: Notification.of(title, message, severity)<br/>Assign UUID & Instant.now()
-        Service->>Store: add(notification)
-        Note over Store: Synchronized addFirst()<br/>If size > 10, removeLast() (Evict oldest)
-        Service->>Handler: broadcastNotification(notification)
+        Controller->>Service: broadcast NotifyRequest
+        Service->>Service: Create Notification record with UUID and timestamp
+        Service->>Store: add notification
+        Note over Store: Synchronized addFirst - evicts oldest if size exceeds 10
+        Service->>Handler: broadcastNotification
         loop For each WebSocketSession in Map
             alt Session is Open
-                Handler->>ClientUI: Send JSON Frame: { type: "notification", notification: {...} }
+                Handler->>ClientUI: Send notification JSON frame
             else Session is Closed or Broken
-                Handler->>Handler: Remove session from Map & close safely
+                Handler->>Handler: Remove session from Map and close safely
             end
         end
         Service-->>Controller: Return created Notification record
-        Controller-->>AdminUI: 201 Created (JSON Response)
+        Controller-->>AdminUI: 201 Created JSON Response
     end
-    Note over ClientUI: Safe DOM injection via textContent<br/>Trigger toast animation & auto-dismiss
+    Note over ClientUI: Safe DOM insertion via textContent and animate toast
 ```
 
 ---
@@ -128,27 +128,27 @@ Ensures the server never retains zombie sessions or dead sockets:
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Scheduler as Spring @Scheduled Heartbeat
+    participant Scheduler as Spring Scheduled Heartbeat
     participant Handler as NotificationWebSocketHandler
     participant Map as Session Map
     participant Client as Connected Client
 
-    loop Every 30 Seconds (fixedDelay = 30000)
-        Scheduler->>Handler: heartbeat()
+    loop Every 30 Seconds
+        Scheduler->>Handler: heartbeat sweep
         loop Check each active session
-            alt session.isOpen() == false
+            alt session is closed
                 Handler->>Map: Remove session
-            else currentTime - lastPongTimestamp > 65000ms
-                Handler->>Client: session.close(SESSION_NOT_RELIABLE)
+            else no pong response for over 65 seconds
+                Handler->>Client: Close session due to timeout
                 Handler->>Map: Remove timed-out session
             else Session Healthy
-                Handler->>Client: Send WebSocket PingFrame (0 bytes)
-                Client-->>Handler: Return PongFrame (Automatic in Browsers)
-                Handler->>Handler: Update lastPongTimestamp
+                Handler->>Client: Send WebSocket PingFrame
+                Client-->>Handler: Return PongFrame
+                Handler->>Handler: Update last pong timestamp
             end
         end
         alt Any session was removed
-            Handler->>Client: Broadcast { type: "connectionCount", count: N }
+            Handler->>Client: Broadcast updated connectionCount
         end
     end
 ```
@@ -160,12 +160,12 @@ When the backend restarts or network drops temporarily:
 
 ```mermaid
 flowchart TD
-    Start([WebSocket Connection Closed]) --> SetStatus[UI updates: 'Reconnecting in Xs...']
-    SetStatus --> Wait[Wait current delay: 1s, 2s, 4s, 8s, 16s, 30s]
-    Wait --> Attempt[Attempt new WebSocket connection]
-    Attempt --> Check{Connection Succeeded?}
-    Check -- Yes --> Connected[Status: 'Connected'<br/>Reset delay to 1s<br/>Receive latest history]
-    Check -- No --> DoubleDelay[Double delay: min delay*2, 30000]
+    Start["WebSocket Connection Closed"] --> SetStatus["UI updates: Reconnecting in Xs..."]
+    SetStatus --> Wait["Wait current delay: 1s, 2s, 4s, 8s, 16s, 30s"]
+    Wait --> Attempt["Attempt new WebSocket connection"]
+    Attempt --> Check{"Connection Succeeded?"}
+    Check -->|Yes| Connected["Status: Connected - Reset delay to 1s"]
+    Check -->|No| DoubleDelay["Double delay: min delay*2, max 30s"]
     DoubleDelay --> SetStatus
 ```
 
